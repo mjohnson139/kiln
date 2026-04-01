@@ -1,0 +1,5 @@
+digraph sample {
+  hello [command="printf 'hello from kiln\n'"];
+  done [command="printf 'workflow complete\n'"];
+  hello -> done;
+}

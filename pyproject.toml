@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kiln"
+version = "0.1.0"
+description = "Minimal local DAG orchestrator"
+requires-python = ">=3.13"
+
+[project.scripts]
+kiln = "kiln.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
