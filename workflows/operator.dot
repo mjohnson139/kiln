@@ -1,0 +1,22 @@
+digraph operator {
+  receive_request [command="echo 'Operator request received: repo=$REPO branch=$BRANCH task=$TASK'"];
+  clone_repo [command="git clone --branch $BRANCH $REPO /tmp/kiln-workspace/$BRANCH && echo 'Cloned $REPO@$BRANCH'"];
+  create_branch [command="cd /tmp/kiln-workspace/$BRANCH && git checkout -b $WORK_BRANCH && echo 'Created branch $WORK_BRANCH'"];
+  write_plan [command="cd /tmp/kiln-workspace/$BRANCH && claude --dangerously-skip-permissions -p 'You are a software architect. Read the task: $TASK. Use the superpowers:writing-plans skill to write a detailed implementation plan to docs/superpowers/plans/. Output the plan file path when done.'"];
+  review_plan [command="cd /tmp/kiln-workspace/$BRANCH && claude --dangerously-skip-permissions -p 'Review the most recent plan in docs/superpowers/plans/. Verify it is complete, unambiguous, and ready for agent execution. Output APPROVED or list blocking issues.'"];
+  create_tmux_session [command="tmux new-session -d -s $WORK_BRANCH -c /tmp/kiln-workspace/$BRANCH bash && echo 'Created tmux session $WORK_BRANCH'"];
+  launch_agent [command="tmux send-keys -t $WORK_BRANCH '/home/matt/.npm-global/bin/codex --dangerously-bypass-approvals-and-sandbox \"Implement the plan in docs/superpowers/plans/ for this repo. Do not commit sensitive information.\"' Enter"];
+  start_monitor [command="(crontab -l 2>/dev/null; echo '*/5 * * * * /home/matt/.npm-global/bin/claude -p \"Check tmux session $WORK_BRANCH status and post a Slack summary to #ray-groove-manager: what is running, any blockers, branch=$WORK_BRANCH, estimated completion\" 2>>/tmp/kiln-monitor-$WORK_BRANCH.log') | crontab - && echo 'Monitor cron installed'"];
+  commit_and_pr [command="cd /tmp/kiln-workspace/$BRANCH && git add -A && git diff --cached --name-only | xargs -I{} sh -c 'grep -qiE \"secret|password|private_key\" {} && echo \"BLOCKED: sensitive content in {}\" && exit 1 || true' && git commit -m \"$TASK\" && gh pr create --base $BRANCH --head $WORK_BRANCH --title \"$TASK\" --body 'Automated implementation via kiln operator workflow.'"];
+  notify_complete [command="claude -p 'Post a Slack message to #ray-groove-manager: kiln operator job complete. Branch=$WORK_BRANCH PR created against $BRANCH. Task: $TASK'"];
+
+  receive_request -> clone_repo;
+  clone_repo -> create_branch;
+  create_branch -> write_plan;
+  write_plan -> review_plan;
+  review_plan -> create_tmux_session;
+  create_tmux_session -> launch_agent;
+  launch_agent -> start_monitor;
+  start_monitor -> commit_and_pr;
+  commit_and_pr -> notify_complete;
+}
